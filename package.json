@@ -1,0 +1,38 @@
+{
+  "name": "spk-bansos-api",
+  "version": "1.0.0",
+  "description": "REST API Sistem Pendukung Keputusan Penerima Bansos menggunakan metode Simple Additive Weighting (SAW). Dibangun dengan Express.js dan PostgreSQL.",
+  "scripts": {
+    "dev": "node --watch --env-file=.env src/server.js",
+    "start": "node src/server.js",
+    "start:docker": "prisma migrate deploy && node src/server.js",
+    "db:migrate": "prisma migrate dev",
+    "db:generate": "prisma generate",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio",
+    "postinstall": "prisma generate"
+  },
+  "license": "UNLICENSED",
+  "type": "module",
+  "dependencies": {
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0",
+    "helmet": "^8.3.0",
+    "morgan": "^1.12.1",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "prisma": "7.10.1"
+  },
+  "allowScripts": {
+    "prisma@7.10.1": true,
+    "@prisma/engines@7.10.1": true
+  },
+  "private": true,
+  "engines": {
+    "node": ">=24"
+  }
+}

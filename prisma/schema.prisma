@@ -1,0 +1,270 @@
+// Skema database SPK Penerima Bansos (metode SAW).
+// Domain names follow the proposal (Indonesian); tables/columns are snake_case in Postgres.
+// After editing: `npm run db:migrate -- --name <change>` (also regenerates the client).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  rt
+  desa
+}
+
+enum SifatKriteria {
+  benefit
+  cost
+}
+
+enum StatusPeriode {
+  open
+  closed
+  final
+}
+
+enum StatusSurvei {
+  draft
+  submitted
+  verified
+  rejected
+}
+
+enum JenisFoto {
+  depan
+  lantai
+  dinding
+  atap
+  jamban
+  air
+}
+
+// ---------- Wilayah & akun ----------
+
+model Rt {
+  id   Int    @id @default(autoincrement())
+  noRt String @map("no_rt") @db.VarChar(3)
+  noRw String @map("no_rw") @db.VarChar(3)
+
+  users         User[]
+  kartuKeluarga KartuKeluarga[]
+
+  @@unique([noRt, noRw])
+  @@map("rt")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique @db.VarChar(50)
+  passwordHash String   @map("password_hash")
+  nama         String   @db.VarChar(100)
+  role         Role
+  // Only set for role = rt; scopes which KK the account may see/edit
+  rtId         Int?     @map("rt_id")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  rt                 Rt?           @relation(fields: [rtId], references: [id])
+  surveiDibuat       Survei[]      @relation("Surveyor")
+  surveiDiverifikasi Survei[]      @relation("Verifikator")
+  perhitungan        Perhitungan[]
+  auditLog           AuditLog[]
+
+  @@map("users")
+}
+
+// ---------- Data master ----------
+
+model KartuKeluarga {
+  id             Int      @id @default(autoincrement())
+  // Unique Restriction: one household = one KK number
+  noKk           String   @unique @map("no_kk") @db.Char(16)
+  kepalaKeluarga String   @map("kepala_keluarga") @db.VarChar(100)
+  alamat         String
+  jumlahAnggota  Int      @map("jumlah_anggota")
+  rtId           Int      @map("rt_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  rt     Rt                 @relation(fields: [rtId], references: [id])
+  survei Survei[]
+  hasil  HasilPerhitungan[]
+
+  @@index([rtId])
+  @@map("kartu_keluarga")
+}
+
+model Periode {
+  id        Int           @id @default(autoincrement())
+  nama      String        @db.VarChar(100)
+  tahun     Int
+  // Number of recipients; ranking positions <= kuota are marked layak
+  kuota     Int
+  status    StatusPeriode @default(open)
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  survei      Survei[]
+  perhitungan Perhitungan[]
+
+  @@map("periode")
+}
+
+// ---------- Kriteria & kuesioner ----------
+
+model Kriteria {
+  id    Int           @id @default(autoincrement())
+  kode  String        @unique @db.VarChar(5) // C1..C5
+  nama  String        @db.VarChar(100)
+  sifat SifatKriteria
+  // All bobot must sum to 1.00 (enforced in the service layer)
+  bobot Decimal       @db.Decimal(4, 3)
+
+  pertanyaan Pertanyaan[]
+
+  @@map("kriteria")
+}
+
+model Pertanyaan {
+  id         Int    @id @default(autoincrement())
+  kriteriaId Int    @map("kriteria_id")
+  kode       String @unique @db.VarChar(5) // 1, 2a, 2b, ...
+  teks       String
+  urutan     Int
+
+  kriteria Kriteria      @relation(fields: [kriteriaId], references: [id])
+  opsi     OpsiJawaban[]
+  jawaban  Jawaban[]
+
+  @@map("pertanyaan")
+}
+
+model OpsiJawaban {
+  id           Int    @id @default(autoincrement())
+  pertanyaanId Int    @map("pertanyaan_id")
+  label        String
+  skor         Int    @db.SmallInt // 1..5
+  urutan       Int
+
+  pertanyaan Pertanyaan @relation(fields: [pertanyaanId], references: [id], onDelete: Cascade)
+  jawaban    Jawaban[]
+
+  @@map("opsi_jawaban")
+}
+
+// ---------- Pendataan lapangan (RT) & verifikasi (Desa) ----------
+
+model Survei {
+  id                Int          @id @default(autoincrement())
+  kkId              Int          @map("kk_id")
+  periodeId         Int          @map("periode_id")
+  surveyorId        Int          @map("surveyor_id")
+  status            StatusSurvei @default(draft)
+  catatanVerifikasi String?      @map("catatan_verifikasi")
+  verifiedById      Int?         @map("verified_by_id")
+  submittedAt       DateTime?    @map("submitted_at")
+  verifiedAt        DateTime?    @map("verified_at")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  kk         KartuKeluarga @relation(fields: [kkId], references: [id])
+  periode    Periode       @relation(fields: [periodeId], references: [id])
+  surveyor   User          @relation("Surveyor", fields: [surveyorId], references: [id])
+  verifiedBy User?         @relation("Verifikator", fields: [verifiedById], references: [id])
+  jawaban    Jawaban[]
+  foto       FotoSurvei[]
+
+  // A KK can be surveyed (and therefore receive aid) only once per periode
+  @@unique([kkId, periodeId])
+  @@index([periodeId, status])
+  @@map("survei")
+}
+
+model Jawaban {
+  surveiId     Int @map("survei_id")
+  pertanyaanId Int @map("pertanyaan_id")
+  opsiId       Int @map("opsi_id")
+  // Copied from opsi_jawaban.skor at answer time, so later rubric edits don't rewrite history
+  skor         Int @db.SmallInt
+
+  survei     Survei      @relation(fields: [surveiId], references: [id], onDelete: Cascade)
+  pertanyaan Pertanyaan  @relation(fields: [pertanyaanId], references: [id])
+  opsi       OpsiJawaban @relation(fields: [opsiId], references: [id])
+
+  @@id([surveiId, pertanyaanId])
+  @@map("jawaban")
+}
+
+model FotoSurvei {
+  id        Int       @id @default(autoincrement())
+  surveiId  Int       @map("survei_id")
+  jenis     JenisFoto
+  // Relative to UPLOAD_DIR; served only through an authenticated route
+  path      String
+  mimeType  String    @map("mime_type") @db.VarChar(50)
+  sizeBytes Int       @map("size_bytes")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  survei Survei @relation(fields: [surveiId], references: [id], onDelete: Cascade)
+
+  @@map("foto_survei")
+}
+
+// ---------- Hasil SAW (snapshot per eksekusi) ----------
+
+model Perhitungan {
+  id             Int      @id @default(autoincrement())
+  periodeId      Int      @map("periode_id")
+  executedById   Int      @map("executed_by_id")
+  executedAt     DateTime @default(now()) @map("executed_at")
+  // { "C1": { "bobot": 0.3, "sifat": "cost" }, ... } at execution time
+  bobotSnapshot  Json     @map("bobot_snapshot")
+  // { "C1": { "min": 1, "max": 5 }, ... } used for normalization
+  minmaxSnapshot Json     @map("minmax_snapshot")
+
+  periode    Periode            @relation(fields: [periodeId], references: [id])
+  executedBy User               @relation(fields: [executedById], references: [id])
+  hasil      HasilPerhitungan[]
+
+  @@map("perhitungan")
+}
+
+model HasilPerhitungan {
+  id            Int     @id @default(autoincrement())
+  perhitunganId Int     @map("perhitungan_id")
+  kkId          Int     @map("kk_id")
+  // Decision matrix row X: { "C1": 3, "C2": 4.5, ... }
+  nilai         Json
+  // Normalized row R: { "C1": 0.333, ... }
+  normalisasi   Json
+  nilaiV        Decimal @map("nilai_v") @db.Decimal(6, 4)
+  ranking       Int
+  layak         Boolean
+
+  perhitungan Perhitungan   @relation(fields: [perhitunganId], references: [id], onDelete: Cascade)
+  kk          KartuKeluarga @relation(fields: [kkId], references: [id])
+
+  @@unique([perhitunganId, kkId])
+  @@map("hasil_perhitungan")
+}
+
+// ---------- Audit ----------
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?     @map("user_id")
+  aksi      String   @db.VarChar(50) // e.g. survei.submit, survei.verify, kriteria.update
+  entitas   String   @db.VarChar(50)
+  entitasId String?  @map("entitas_id") @db.VarChar(50)
+  data      Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([entitas, entitasId])
+  @@map("audit_log")
+}
