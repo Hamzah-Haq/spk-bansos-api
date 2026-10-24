@@ -38,11 +38,25 @@ src/server.js             entry: listen + graceful shutdown
 src/app.js                express app: middleware, routers under /api, error handler
 src/config/env.js         the only place that reads process.env
 src/lib/prisma.js         single PrismaClient (PrismaPg adapter) — import this one
+src/lib/session.js        express-session + Postgres store (`session` table), promisified helpers
 src/generated/prisma/     generated client (gitignored; `npm run db:generate`)
-src/middlewares/          cross-cutting middleware (error handler; auth/role guards go here)
+src/middlewares/          error handler; auth.js = requireAuth / requireRole guards
 src/modules/<feature>/    feature code: <feature>.routes.js, .controller.js, .service.js
 src/utils/http-error.js   HttpError(status, message, details)
+postman/                  Postman collection (import it; run with Collection Runner or newman)
 ```
+
+## Auth & RBAC
+
+- Session cookie `spk.sid` (httpOnly, SameSite=Lax, `secure: 'auto'`); the session holds only
+  `userId`. `requireAuth` re-reads the user each request (deactivation/role change applies at
+  once) and sets `req.user = { id, username, nama, role, rt }`. No session → 401.
+- `requireRole('desa')` / `requireRole('rt')` after `requireAuth`; wrong role → 403. Put guards
+  in the feature router (`router.use(requireAuth, requireRole('desa'))`) or per route.
+- RT data scoping (an RT sees only KK in its own RT) is a service-layer filter on
+  `req.user.rt.id`, not just a role check. Add it to every RT-facing query.
+- Endpoints: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`;
+  `GET /api/users` (desa).
 
 ## Conventions
 

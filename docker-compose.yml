@@ -28,6 +28,8 @@ services:
       PORT: 3000
       DATABASE_URL: postgresql://${POSTGRES_USER:-spk}:${POSTGRES_PASSWORD:-spk_dev_password}@db:5432/${POSTGRES_DB:-spk_bansos}?schema=public
       UPLOAD_DIR: /app/uploads
+      # From .env; the api refuses to start in production without it
+      SESSION_SECRET: ${SESSION_SECRET:-}
     depends_on:
       db:
         condition: service_healthy

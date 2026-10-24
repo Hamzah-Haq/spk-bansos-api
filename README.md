@@ -17,6 +17,12 @@ npm run dev                 # http://localhost:3000/api/health
 
 Akun seed (password `password123`): `admin.desa`, `rt001.rw001`, `rt002.rw001`, `rt003.rw001`.
 
+## Uji API dengan Postman
+Import `postman/spk-bansos-api.postman_collection.json`, lalu jalankan folder **Skenario RBAC**
+lewat Collection Runner (login, `/auth/me`, akses `/users` sebagai desa = 200 dan sebagai RT = 403,
+logout). Sesi memakai cookie httpOnly `spk.sid` yang otomatis disimpan Postman.
+Tanpa Postman: `npx newman run postman/spk-bansos-api.postman_collection.json`.
+
 ## Menjalankan seluruh sistem (demo)
 Pastikan repo frontend `spk-bansos-web` ada di `../../Frontend/spk-bansos-web` (atau atur `WEB_PATH` di `.env`), lalu:
 ```bash
