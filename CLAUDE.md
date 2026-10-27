@@ -38,11 +38,17 @@ src/server.js             entry: listen + graceful shutdown
 src/app.js                express app: middleware, routers under /api, error handler
 src/config/env.js         the only place that reads process.env
 src/lib/prisma.js         single PrismaClient (PrismaPg adapter) — import this one
-src/lib/session.js        express-session + Postgres store (`session` table), promisified helpers
+src/lib/session.js        express-session + Postgres store (`session` table), promisified helpers,
+                          revokeUserSessions(userId, exceptSid?) = log a user out everywhere
+src/lib/audit.js          audit(db, { userId, aksi, entitas, entitasId, data }) + diff(before, after)
 src/generated/prisma/     generated client (gitignored; `npm run db:generate`)
-src/middlewares/          error handler; auth.js = requireAuth / requireRole guards
+src/middlewares/          error handler (also maps Prisma P2002/P2003/P2025 and bad JSON);
+                          auth.js = requireAuth / requireRole; validate.js = zod request validation
 src/modules/<feature>/    feature code: <feature>.routes.js, .controller.js, .service.js
+                          (auth, users, rt, periode, health)
 src/utils/http-error.js   HttpError(status, message, details)
+src/utils/schemas.js      shared zod pieces: idParams, password, searchQuery, optionalQuery, pageQuery,
+                          paginate(), pageMeta()
 postman/                  Postman collection (import it; run with Collection Runner or newman)
 ```
 
@@ -55,8 +61,23 @@ postman/                  Postman collection (import it; run with Collection Run
   in the feature router (`router.use(requireAuth, requireRole('desa'))`) or per route.
 - RT data scoping (an RT sees only KK in its own RT) is a service-layer filter on
   `req.user.rt.id`, not just a role check. Add it to every RT-facing query.
-- Endpoints: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`;
-  `GET /api/users` (desa).
+- Self-lockout guard: a desa account can't deactivate, demote, delete or admin-reset itself, so
+  at least one active desa account always remains.
+- Password reset, password change, deactivation and deletion call `revokeUserSessions`.
+
+## Endpoints
+
+| Method & path | Role | Notes |
+|---|---|---|
+| `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` | any | |
+| `PUT /api/auth/password` | any | `{ currentPassword, newPassword }`; keeps current session, logs out others |
+| `GET /api/users` | desa | `?q=&role=&rtId=&status=aktif\|nonaktif&page=&limit=` → `{ data, meta }` |
+| `GET/POST /api/users`, `GET/PATCH/DELETE /api/users/:id` | desa | role rt requires `rtId`; delete only without survei/perhitungan history (else deactivate) |
+| `PUT /api/users/:id/password` | desa | admin reset `{ password }` |
+| `GET/POST /api/rt`, `GET/PATCH/DELETE /api/rt/:id` | desa | `noRt`/`noRw` padded to 3 digits; delete only with no accounts/KK |
+| `GET /api/periode`, `GET /api/periode/:id` | any | `?status=`; includes `jumlahSurvei`, `jumlahPerhitungan` |
+| `POST /api/periode`, `PATCH/DELETE /api/periode/:id` | desa | created as open; final is read-only; delete only without survei/perhitungan |
+| `PATCH /api/periode/:id/status` | desa | `{ status }`: open → closed, closed → open \| final; at most one open periode |
 
 ## Conventions
 
@@ -65,6 +86,18 @@ postman/                  Postman collection (import it; run with Collection Run
   business logic). Keep SAW math in a pure, DB-free module so it can be unit-tested.
 - Throw `HttpError` for expected failures; Express 5 forwards async errors to `errorHandler`.
   Error JSON shape: `{ "error": { "message", "details?" } }`. User-facing messages in Indonesian.
+  `details` is `{ field: message }` so the frontend can show it under the input.
+- Validation: zod schemas in `<feature>.routes.js`, applied with
+  `validate({ params, query, body })`. Controllers read the parsed values from
+  `req.valid.{params,query,body}` (Express 5's `req.query` is read-only). Give field rules an
+  Indonesian message; zod's `id` locale covers the rest.
+- Responses: `{ data }` for one item or a small list (rt, periode); `{ data, meta }` with
+  `meta = { page, limit, total, totalPages }` for lists that grow (users, later KK and survei).
+  Mutations return the saved item; deletes return `{ message }`. Create = 201.
+- Services check uniqueness and "still in use" first and throw a 409 with a specific message;
+  the Prisma error mapping is only a safety net for races.
+- Every create/update/delete writes `audit_log` in the same transaction (`aksi` like `user.create`,
+  `periode.status`); `*.update` stores `diff(before, input)`. Never log password hashes.
 - Prisma 7 specifics: the `prisma-client` generator emits TypeScript into `src/generated/prisma`;
   Node 24 imports it directly via type stripping (`../generated/prisma/client.ts`). Requires the
   `@prisma/adapter-pg` driver adapter. `.env` is loaded explicitly (`--env-file` for the app,

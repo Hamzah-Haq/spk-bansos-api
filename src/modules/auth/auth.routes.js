@@ -1,6 +1,9 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { HttpError } from '../../utils/http-error.js';
 import { requireAuth } from '../../middlewares/auth.js';
+import { validate } from '../../middlewares/validate.js';
+import { password } from '../../utils/schemas.js';
 import * as controller from './auth.controller.js';
 
 export const authRouter = Router();
@@ -24,3 +27,11 @@ authRouter.post('/login', validateLogin, controller.login);
 authRouter.post('/logout', controller.logout);
 // GET  /api/auth/me      → current user (frontend calls this on load to restore the session)
 authRouter.get('/me', requireAuth, controller.me);
+
+const changePasswordBody = z.object({
+  currentPassword: z.string({ error: 'Password lama wajib diisi' }).min(1, 'Password lama wajib diisi'),
+  newPassword: password,
+});
+
+// PUT  /api/auth/password { currentPassword, newPassword } → any role; logs out other devices
+authRouter.put('/password', requireAuth, validate({ body: changePasswordBody }), controller.changePassword);

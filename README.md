@@ -18,9 +18,12 @@ npm run dev                 # http://localhost:3000/api/health
 Akun seed (password `password123`): `admin.desa`, `rt001.rw001`, `rt002.rw001`, `rt003.rw001`.
 
 ## Uji API dengan Postman
-Import `postman/spk-bansos-api.postman_collection.json`, lalu jalankan folder **Skenario RBAC**
-lewat Collection Runner (login, `/auth/me`, akses `/users` sebagai desa = 200 dan sebagai RT = 403,
-logout). Sesi memakai cookie httpOnly `spk.sid` yang otomatis disimpan Postman.
+Import `postman/spk-bansos-api.postman_collection.json`, lalu jalankan lewat Collection Runner:
+- **Skenario RBAC**: login, `/auth/me`, akses `/users` sebagai desa = 200 dan sebagai RT = 403, logout.
+- **Skenario Master Data**: CRUD Wilayah RT, Akun, dan Periode (validasi 400, duplikat 409, akses
+  RT = 403). Data uji dibuat lalu dihapus kembali, jadi aman dijalankan berulang.
+
+Sesi memakai cookie httpOnly `spk.sid` yang otomatis disimpan Postman.
 Tanpa Postman: `npx newman run postman/spk-bansos-api.postman_collection.json`.
 
 ## Menjalankan seluruh sistem (demo)

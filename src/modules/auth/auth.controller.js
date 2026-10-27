@@ -26,3 +26,8 @@ export async function logout(req, res) {
 export function me(req, res) {
   res.json({ user: req.user });
 }
+
+export async function changePassword(req, res) {
+  await authService.changePassword(req.user, req.valid.body, req.sessionID);
+  res.json({ message: 'Password berhasil diubah' });
+}

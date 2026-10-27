@@ -6,6 +6,8 @@ import { sessionMiddleware } from './lib/session.js';
 import { healthRouter } from './modules/health/health.routes.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { usersRouter } from './modules/users/users.routes.js';
+import { rtRouter } from './modules/rt/rt.routes.js';
+import { periodeRouter } from './modules/periode/periode.routes.js';
 import { notFound, errorHandler } from './middlewares/error-handler.js';
 
 export function createApp() {
@@ -24,6 +26,8 @@ export function createApp() {
   app.use('/api/health', healthRouter);
   app.use('/api/auth', authRouter);
   app.use('/api/users', usersRouter);
+  app.use('/api/rt', rtRouter);
+  app.use('/api/periode', periodeRouter);
 
   app.use('/api', notFound);
   app.use(errorHandler);
