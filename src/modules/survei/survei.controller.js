@@ -8,6 +8,15 @@ export async function get(req, res) {
   res.json({ data: await surveiService.getSurvei(req.user, req.valid.params.id) });
 }
 
+export async function ringkasan(req, res) {
+  res.json({ data: await surveiService.ringkasanSurvei(req.user, req.valid.query) });
+}
+
+export async function verify(req, res) {
+  const { id } = req.valid.params;
+  res.json({ data: await surveiService.verifySurvei(req.user, id, req.valid.body) });
+}
+
 export async function create(req, res) {
   res.status(201).json({ data: await surveiService.createSurvei(req.user, req.valid.body) });
 }

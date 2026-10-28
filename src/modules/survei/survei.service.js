@@ -88,11 +88,17 @@ export async function listSurvei(actor, { periodeId, status, rtId, q, page, limi
     },
   };
 
+  // The verification queue is first come, first served; other lists show recent activity first
+  const orderBy =
+    status === 'submitted'
+      ? [{ submittedAt: 'asc' }, { id: 'asc' }]
+      : [{ updatedAt: 'desc' }, { id: 'desc' }];
+
   const [rows, total, totalPertanyaan] = await prisma.$transaction([
     prisma.survei.findMany({
       where,
       select: surveiSelect,
-      orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+      orderBy,
       ...paginate({ page, limit }),
     }),
     prisma.survei.count({ where }),
@@ -102,6 +108,23 @@ export async function listSurvei(actor, { periodeId, status, rtId, q, page, limi
     data: rows.map((row) => toPublicSurvei(row, totalPertanyaan)),
     meta: pageMeta({ page, limit }, total),
   };
+}
+
+// Survey counts per status in a periode (verification tabs, dashboard); RT accounts: own RT only.
+export async function ringkasanSurvei(actor, { periodeId, rtId }) {
+  const groups = await prisma.survei.groupBy({
+    by: ['status'],
+    where: { periodeId, kk: { rtId: scopedRtId(actor) ?? rtId } },
+    _count: { _all: true },
+  });
+  const counts = {
+    draft: 0,
+    submitted: 0,
+    verified: 0,
+    rejected: 0,
+  };
+  for (const group of groups) counts[group.status] = group._count._all;
+  return { ...counts, total: groups.reduce((sum, g) => sum + g._count._all, 0) };
 }
 
 // Outside the RT account's wilayah → 404, so the survey's existence isn't revealed.
@@ -273,6 +296,48 @@ export async function submitSurvei(actor, id) {
       data: { dari: survei.status },
     }),
   ]);
+  return getSurvei(actor, id);
+}
+
+// Perangkat Desa's decision on a submitted survey: verified (counts in SAW) or rejected (back to the
+// RT with a note, who revises and submits again). verifiedBy/verifiedAt record who decided either way.
+export async function verifySurvei(actor, id, { status, catatan }) {
+  const survei = await getSurvei(actor, id);
+  if (survei.status !== 'submitted') {
+    throw new HttpError(
+      409,
+      `Survei berstatus ${STATUS_LABELS[survei.status]}; hanya survei yang menunggu verifikasi yang dapat diperiksa`,
+    );
+  }
+  if (survei.periode.status === 'final') {
+    throw new HttpError(409, `Periode "${survei.periode.nama}" sudah final sehingga survei tidak dapat diperiksa lagi`);
+  }
+  if (status === 'rejected' && !catatan) {
+    const message = 'Catatan wajib diisi agar Ketua RT tahu apa yang harus diperbaiki';
+    throw new HttpError(400, message, { catatan: message });
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // Conditional on the status, so two admins deciding at once can't both win
+    const { count } = await tx.survei.updateMany({
+      where: { id, status: 'submitted' },
+      data: {
+        status,
+        catatanVerifikasi: catatan || null,
+        verifiedById: actor.id,
+        verifiedAt: new Date(),
+      },
+    });
+    if (!count) throw new HttpError(409, 'Survei baru saja diperiksa oleh pengguna lain. Muat ulang halaman.');
+
+    await audit(tx, {
+      userId: actor.id,
+      aksi: status === 'verified' ? 'survei.verify' : 'survei.reject',
+      entitas: 'survei',
+      entitasId: id,
+      data: { catatan: catatan || null },
+    });
+  });
   return getSurvei(actor, id);
 }
 

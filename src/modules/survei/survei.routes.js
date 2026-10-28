@@ -12,6 +12,7 @@ export const surveiRouter = Router();
 // An RT account only ever sees surveys of KK in its own RT (scoped in survei.service.js).
 surveiRouter.use(requireAuth);
 const rtOnly = requireRole('rt');
+const desaOnly = requireRole('desa');
 
 export const JENIS_FOTO = ['depan', 'lantai', 'dinding', 'atap', 'jamban', 'air'];
 
@@ -28,6 +29,21 @@ const listQuery = z.object({
   rtId: optionalQuery(z.coerce.number().int().positive()),
   q: searchQuery,
   ...pageQuery,
+});
+
+const ringkasanQuery = z.object({
+  periodeId: optionalQuery(z.coerce.number().int().positive()),
+  rtId: optionalQuery(z.coerce.number().int().positive()),
+});
+
+const verifikasiBody = z.object({
+  status: z.enum(['verified', 'rejected'], { error: 'Keputusan harus verified atau rejected' }),
+  // Required when rejecting (checked in the service so the message can say why)
+  catatan: z
+    .string()
+    .trim()
+    .max(1000, 'Catatan maksimal 1000 karakter')
+    .optional(),
 });
 
 const createBody = z.object({
@@ -57,6 +73,9 @@ const fotoBody = z.object({
 
 // GET    /api/survei                     ?periodeId=&status=&rtId=&q=&page=&limit= → { data, meta }
 surveiRouter.get('/', validate({ query: listQuery }), controller.list);
+// GET    /api/survei/ringkasan           ?periodeId=&rtId= → { draft, submitted, verified, rejected, total }
+// (declared before /:id so "ringkasan" isn't taken for an id)
+surveiRouter.get('/ringkasan', validate({ query: ringkasanQuery }), controller.ringkasan);
 // GET    /api/survei/:id                 → with jawaban[] and foto[]
 surveiRouter.get('/:id', validate({ params: idParams }), controller.get);
 // POST   /api/survei                     { kkId } → draft in the open periode
@@ -65,6 +84,14 @@ surveiRouter.post('/', rtOnly, validate({ body: createBody }), controller.create
 surveiRouter.put('/:id/jawaban', rtOnly, validate({ params: idParams, body: jawabanBody }), controller.saveJawaban);
 // POST   /api/survei/:id/submit          → draft/rejected → submitted; every question must be answered
 surveiRouter.post('/:id/submit', rtOnly, validate({ params: idParams }), controller.submit);
+// POST   /api/survei/:id/verifikasi      { status: verified | rejected, catatan? } → submitted only;
+//                                        catatan required for rejected
+surveiRouter.post(
+  '/:id/verifikasi',
+  desaOnly,
+  validate({ params: idParams, body: verifikasiBody }),
+  controller.verify,
+);
 // DELETE /api/survei/:id                 → only a draft that was never submitted
 surveiRouter.delete('/:id', rtOnly, validate({ params: idParams }), controller.remove);
 // POST   /api/survei/:id/foto            multipart: file (JPEG/PNG/WebP ≤ 5 MB) + jenis → replaces that jenis

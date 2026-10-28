@@ -2981,7 +2981,7 @@
     },
     {
       "name": "Skenario Survei",
-      "description": "Survei RT: mulai, jawaban parsial/lengkap, validasi kirim, pembatasan wilayah, dan akses desa. Prasyarat: ada periode yang dibuka, setiap pertanyaan sudah memiliki minimal 2 opsi jawaban, dan RT 001 masih punya KK yang belum disurvei pada periode itu. Draf survei uji dihapus kembali di akhir. Kirim (submit) berhasil dan unggah foto diuji manual, karena survei yang sudah dikirim tidak dapat dihapus.",
+      "description": "Survei RT: mulai, jawaban parsial/lengkap, validasi kirim, pembatasan wilayah, akses desa, ringkasan per status, dan aturan verifikasi (hanya desa, hanya survei yang sudah dikirim). Prasyarat: ada periode yang dibuka, setiap pertanyaan sudah memiliki minimal 2 opsi jawaban, dan RT 001 masih punya KK yang belum disurvei pada periode itu. Draf survei uji dihapus kembali di akhir. Kirim (submit) berhasil dan unggah foto diuji manual, karena survei yang sudah dikirim tidak dapat dihapus.",
       "item": [
         {
           "name": "Login - rt001.rw001",
@@ -3705,6 +3705,130 @@
           }
         },
         {
+          "name": "Ringkasan - desa",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json().data;",
+                  "pm.test('hitungan per status', () => pm.expect(d).to.have.keys('draft', 'submitted', 'verified', 'rejected', 'total'));",
+                  "pm.test('draf uji terhitung', () => pm.expect(d.draft).to.be.at.least(1));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/survei/ringkasan?periodeId={{periodeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "survei",
+                "ringkasan"
+              ],
+              "query": [
+                {
+                  "key": "periodeId",
+                  "value": "{{periodeId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verifikasi - keputusan tidak valid (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('details.status', () => pm.expect(pm.response.json().error.details).to.have.property('status'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"submitted\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/survei/{{surveiId}}/verifikasi",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "survei",
+                "{{surveiId}}",
+                "verifikasi"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verifikasi - survei masih draf (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"verified\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/survei/{{surveiId}}/verifikasi",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "survei",
+                "{{surveiId}}",
+                "verifikasi"
+              ]
+            }
+          }
+        },
+        {
           "name": "Login - rt001.rw001",
           "event": [
             {
@@ -3742,6 +3866,83 @@
               "path": [
                 "auth",
                 "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verifikasi - RT (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"verified\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/survei/{{surveiId}}/verifikasi",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "survei",
+                "{{surveiId}}",
+                "verifikasi"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Ringkasan - RT hanya wilayahnya",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/survei/ringkasan?periodeId={{periodeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "survei",
+                "ringkasan"
+              ],
+              "query": [
+                {
+                  "key": "periodeId",
+                  "value": "{{periodeId}}"
+                }
               ]
             }
           }

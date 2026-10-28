@@ -91,7 +91,9 @@ postman/                  Postman collection (import it; run with Collection Run
 | `PUT /api/pertanyaan/:id/opsi` | desa | `{ opsi: [{ id?, label, skor 1–5 }] }`, 2–10, unique labels; replaces the list in that order (id = keep, no id = new, missing = delete unless answered) |
 
 | `GET /api/survei` | any | `?periodeId=&status=&rtId=&q=&page=&limit=` → `{ data, meta }`; each with `kk`, `periode`, `jumlahJawaban`, `totalPertanyaan`, `jumlahFoto`, `dapatDiubah`; RT scoped through `kk.rtId` |
+| `GET /api/survei/ringkasan` | any | `?periodeId=&rtId=` → `{ data: { draft, submitted, verified, rejected, total } }`; RT scoped |
 | `GET /api/survei/:id` | any | plus `jawaban[] { pertanyaanId, opsiId, skor }`, `foto[]`; outside the RT's wilayah → 404 |
+| `POST /api/survei/:id/verifikasi` | desa | `{ status: verified \| rejected, catatan? }`; only from submitted, periode not final; `catatan` required for rejected; sets `verifiedBy`/`verifiedAt` either way (= "diperiksa oleh") |
 | `POST /api/survei` | rt | `{ kkId }` → draft in the open periode; 409 if no open periode, KK already surveyed in it, or kuesioner incomplete (a question with < 2 opsi) |
 | `PUT /api/survei/:id/jawaban` | rt | `{ jawaban: [{ pertanyaanId, opsiId }] }` upserts only these (save per step); `skor` copied from the opsi |
 | `POST /api/survei/:id/submit` | rt | draft/rejected → submitted; every question must be answered (409 lists the missing codes) |
@@ -100,8 +102,11 @@ postman/                  Postman collection (import it; run with Collection Run
 | `GET /api/survei/:id/foto/:fotoId`, `DELETE …` | any / rt | GET streams the image with the survei's access rules; files in `UPLOAD_DIR/survei/<id>/` |
 
 Survei edits (answers, photos, submit, delete) need status draft or rejected **and** an open periode
-(`dapatDiubah`). Verification (submitted → verified/rejected) is T6, not built yet. Photos are not
-required for submit (not specified in the proposal).
+(`dapatDiubah`). Photos are not required for submit (not specified in the proposal).
+Verification: submitted → verified (counts in SAW) or rejected (RT revises, resubmits; the old note
+stays in `catatanVerifikasi` until the next decision). The update is conditional on
+`status = 'submitted'` so two admins can't both decide. A decision can't be undone; a wrongly verified
+survey has no reopen path yet. `GET /api/survei?status=submitted` sorts oldest submission first (queue).
 
 Kuesioner lock: while any survei exists in a periode that is open/closed, adding/deleting questions
 or options and changing scores answers 409 (two KK in one periode must be scored by the same rubric;
