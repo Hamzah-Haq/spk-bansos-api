@@ -30,6 +30,13 @@ Import `postman/spk-bansos-api.postman_collection.json`, lalu jalankan lewat Col
   ringkasan per status, dan aturan verifikasi (hanya desa, hanya survei yang sudah dikirim).
   Prasyarat: ada periode yang dibuka, setiap pertanyaan sudah memiliki minimal 2 opsi jawaban, dan RT 001
   masih punya KK yang belum disurvei. Draf uji dihapus di akhir; kirim berhasil dan unggah foto diuji manual.
+- **Skenario Perhitungan SAW**: hanya desa, validasi, menjalankan SAW, dan konsistensi hasil (ranking urut,
+  V menurun, layak = kuota teratas). Prasyarat: periode dibuka dengan minimal 1 survei terverifikasi.
+  Perhitungan yang berhasil tetap tersimpan sebagai riwayat.
+
+## Unit test SAW
+`npm test` menjalankan uji mesin SAW (`src/lib/saw.js`, tanpa database): konversi nilai, normalisasi
+benefit/cost, nilai V, ranking, kuota, dan aturan nilai seri.
 
 Sesi memakai cookie httpOnly `spk.sid` yang otomatis disimpan Postman.
 Tanpa Postman: `npx newman run postman/spk-bansos-api.postman_collection.json`.

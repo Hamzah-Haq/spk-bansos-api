@@ -10,6 +10,7 @@
     "db:generate": "prisma generate",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
+    "test": "node --test",
     "postinstall": "prisma generate"
   },
   "license": "UNLICENSED",

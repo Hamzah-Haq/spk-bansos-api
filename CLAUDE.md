@@ -21,6 +21,7 @@ npm run db:migrate              # apply/create migrations (prisma migrate dev)
 npm run db:seed                 # idempotent fictional seed (accounts, RT, KK, kriteria, pertanyaan, periode)
 npm run dev                     # http://localhost:3000, auto-restart on change
 npm run db:studio               # browse data
+npm test                        # node:test unit tests in test/ (SAW engine, no database)
 
 docker compose up -d --build    # full stack demo: db + api + web → http://localhost:8080
 ```
@@ -45,7 +46,10 @@ src/generated/prisma/     generated client (gitignored; `npm run db:generate`)
 src/middlewares/          error handler (also maps Prisma P2002/P2003/P2025 and bad JSON);
                           auth.js = requireAuth / requireRole; validate.js = zod request validation
 src/modules/<feature>/    feature code: <feature>.routes.js, .controller.js, .service.js
-                          (auth, users, rt, periode, kk, kriteria, pertanyaan, survei, dashboard, health)
+                          (auth, users, rt, periode, kk, kriteria, pertanyaan, survei, dashboard, perhitungan, health)
+src/lib/saw.js            SAW engine, pure (no DB): konversiNilai(kriteria, skor) → X, hitungSaw({ kriteria,
+                          alternatif, kuota }) → { minmax, hasil[] }, SawError, PRESISI_V; tie-break rule inside
+test/                     node:test unit tests (`npm test`)
 src/lib/uploads.js        photoUpload (multer, memory, 1 file ≤ 5 MB on field "file"), detectImage (JPEG/PNG/
                           WebP by magic bytes), saveUpload/removeUpload/uploadPath (refuses paths outside UPLOAD_DIR)
 src/utils/http-error.js   HttpError(status, message, details)
@@ -83,7 +87,7 @@ postman/                  Postman collection (import it; run with Collection Run
 | `POST /api/kk`, `GET/PATCH/DELETE /api/kk/:id` | any | `{ noKk (16 digit, unique), kepalaKeluarga, alamat, jumlahAnggota, rtId }`; `rtId` required for desa, RT uses its own; includes `jumlahSurvei`, `jumlahHasil`; delete only without survei/hasil |
 | `GET /api/periode`, `GET /api/periode/:id` | any | `?status=`; includes `jumlahSurvei`, `jumlahPerhitungan` |
 | `POST /api/periode`, `PATCH/DELETE /api/periode/:id` | desa | created as open; final is read-only; delete only without survei/perhitungan |
-| `PATCH /api/periode/:id/status` | desa | `{ status }`: open → closed, closed → open \| final; at most one open periode |
+| `PATCH /api/periode/:id/status` | desa | `{ status }`: open → closed, closed → open \| final; at most one open periode; final needs a latest perhitungan that isn't `usang` |
 | `GET /api/kriteria` | any | C1–C5 with `pertanyaan[].opsi[]` (and `jumlahJawaban`); `bobot` is a number; `meta = { totalBobot, kuesionerTerkunci }` (lock reason string or null) |
 | `PATCH /api/kriteria/:id` | desa | `{ nama?, sifat? }`; no create/delete (C1–C5 fixed by proposal Tabel 2.1) |
 | `PUT /api/kriteria/bobot` | desa | `{ bobot: [{ id, bobot }] }` for every kriteria; each > 0, ≤ 3 decimals, Σ = 1.000 exactly |
@@ -101,6 +105,9 @@ postman/                  Postman collection (import it; run with Collection Run
 | `DELETE /api/survei/:id` | rt | only a draft that was never submitted (also deletes its photos) |
 | `POST /api/survei/:id/foto` | rt | multipart `file` + `jenis` (depan, lantai, dinding, atap, jamban, air); one per jenis, re-upload replaces |
 | `GET /api/survei/:id/foto/:fotoId`, `DELETE …` | any / rt | GET streams the image with the survei's access rules; files in `UPLOAD_DIR/survei/<id>/` |
+| `POST /api/perhitungan` | desa | `{ periodeId }` → 201 snapshot; SAW on the periode's verified surveys; 409 if final, none verified, Σ bobot ≠ 1 or an answer is missing |
+| `GET /api/perhitungan` | desa | `?periodeId=` → `{ data }` runs newest first, with `jumlahAlternatif`, `jumlahLayak`, `terbaru` |
+| `GET /api/perhitungan/:id` | desa | `kriteria[] { kode, nama, sifat, bobot, min, max }` (snapshot), `hasil[] { ranking, kk, nilai (X), normalisasi (R), nilaiV, layak, seri }`, `terbaru`, `usang[]` (reasons the run no longer matches the data) |
 
 Survei edits (answers, photos, submit, delete) need status draft or rejected **and** an open periode
 (`dapatDiubah`). Photos are not required for submit (not specified in the proposal).
@@ -113,6 +120,14 @@ Kuesioner lock: while any survei exists in a periode that is open/closed, adding
 or options and changing scores answers 409 (two KK in one periode must be scored by the same rubric;
 `jawaban.skor` is copied at answer time). Question text, codes and option labels stay editable.
 Bobot and sifat stay editable; each SAW run snapshots them.
+
+Perhitungan (SAW run): allowed while the periode is open or closed, any number of times; every run is
+kept (no delete) and the latest one is the official result. X = average of the question scores per
+kriteria (`jawaban.skor`); the engine reads `sifat` from the data, so open decision #1 is a data change in
+the Kriteria menu, not a code change. A run is `usang` when surveys were verified after it, a bobot/sifat
+changed, or the kuota changed. V is stored at 4 decimals and ties are judged at that precision; the
+tie-break rule in `saw.js` is PROVISIONAL (open decision #4): higher r on the heaviest kriteria first,
+then more `jumlahAnggota`, then smaller No. KK. `seri: true` marks results placed by that rule.
 
 ## Conventions
 

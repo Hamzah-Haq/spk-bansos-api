@@ -13,6 +13,7 @@ import { kriteriaRouter } from './modules/kriteria/kriteria.routes.js';
 import { pertanyaanRouter } from './modules/pertanyaan/pertanyaan.routes.js';
 import { surveiRouter } from './modules/survei/survei.routes.js';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes.js';
+import { perhitunganRouter } from './modules/perhitungan/perhitungan.routes.js';
 import { notFound, errorHandler } from './middlewares/error-handler.js';
 
 export function createApp() {
@@ -38,6 +39,7 @@ export function createApp() {
   app.use('/api/pertanyaan', pertanyaanRouter);
   app.use('/api/survei', surveiRouter);
   app.use('/api/dashboard', dashboardRouter);
+  app.use('/api/perhitungan', perhitunganRouter);
 
   app.use('/api', notFound);
   app.use(errorHandler);

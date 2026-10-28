@@ -1,6 +1,7 @@
 import { prisma } from '../../lib/prisma.js';
 import { audit, diff } from '../../lib/audit.js';
 import { HttpError } from '../../utils/http-error.js';
+import { assertHasilSiapFinal } from '../perhitungan/perhitungan.service.js';
 
 // open:   RT can create/submit surveys, Desa verifies.
 // closed: no new surveys; Desa finishes verification and runs SAW. Can be reopened.
@@ -115,7 +116,8 @@ export async function changeStatus(actor, id, status) {
     );
   }
   if (status === 'open') await assertNoOtherOpen(id);
-  // TODO(SAW): once the SAW engine exists, require at least one perhitungan before 'final'.
+  // The latest SAW run becomes the official result, so it must exist and match the current data
+  if (status === 'final') await assertHasilSiapFinal(id);
 
   await prisma.$transaction([
     prisma.periode.update({ where: { id }, data: { status } }),

@@ -104,6 +104,14 @@
     {
       "key": "totalPertanyaan",
       "value": ""
+    },
+    {
+      "key": "kuota",
+      "value": ""
+    },
+    {
+      "key": "perhitunganId",
+      "value": ""
     }
   ],
   "item": [
@@ -4059,6 +4067,451 @@
               "path": [
                 "survei",
                 "{{surveiId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Skenario Perhitungan SAW",
+      "description": "Perhitungan SAW: hanya desa, validasi, menjalankan SAW pada survei terverifikasi, dan konsistensi snapshot (urutan ranking, V menurun, layak = kuota teratas). Prasyarat: ada periode yang dibuka dengan minimal 1 survei terverifikasi. Perhitungan yang berhasil tetap tersimpan sebagai riwayat (tidak dihapus).",
+      "item": [
+        {
+          "name": "Login - rt001.rw001",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"rt001.rw001\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Perhitungan - RT jalankan (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"periodeId\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/perhitungan",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "perhitungan"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Perhitungan - RT lihat (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/perhitungan",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "perhitungan"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login - admin.desa",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin.desa\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Periode dibuka",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const [open] = pm.response.json().data;",
+                  "pm.test('ada periode yang dibuka (prasyarat)', () => pm.expect(open).to.exist);",
+                  "if (open) { pm.collectionVariables.set('periodeId', open.id); pm.collectionVariables.set('kuota', open.kuota); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/periode?status=open",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "periode"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "open"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Perhitungan - tanpa periode (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('details.periodeId', () => pm.expect(pm.response.json().error.details).to.have.property('periodeId'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/perhitungan",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "perhitungan"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Perhitungan - periode tidak ada (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"periodeId\": 999999\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/perhitungan",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "perhitungan"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Perhitungan - jalankan SAW",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201 (409 = belum ada survei terverifikasi)', () => pm.response.to.have.status(201));",
+                  "const d = pm.response.json().data;",
+                  "pm.collectionVariables.set('perhitunganId', d.id);",
+                  "pm.test('snapshot 5 kriteria, Σ bobot = 1', () => { pm.expect(d.kriteria).to.have.length(5); pm.expect(Math.round(d.kriteria.reduce((s, k) => s + k.bobot, 0) * 1000)).to.eql(1000); });",
+                  "pm.test('urut ranking 1..n, V menurun', () => d.hasil.forEach((h, i) => { pm.expect(h.ranking).to.eql(i + 1); if (i) pm.expect(h.nilaiV).to.be.at.most(d.hasil[i - 1].nilaiV); }));",
+                  "pm.test('0 < V ≤ 1 dan 0 < r ≤ 1', () => d.hasil.forEach(h => { pm.expect(h.nilaiV).to.be.within(0, 1); Object.values(h.normalisasi).forEach(r => pm.expect(r).to.be.within(0, 1)); }));",
+                  "pm.test('layak = min(kuota, n) teratas', () => { const n = Math.min(Number(pm.collectionVariables.get('kuota')), d.hasil.length); pm.expect(d.jumlahLayak).to.eql(n); d.hasil.forEach(h => pm.expect(h.layak).to.eql(h.ranking <= n)); });",
+                  "pm.test('terbaru dan belum usang', () => { pm.expect(d.terbaru).to.be.true; pm.expect(d.usang).to.eql([]); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"periodeId\": {{periodeId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/perhitungan",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "perhitungan"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Perhitungan - daftar periode ini",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const [first] = pm.response.json().data;",
+                  "pm.test('perhitungan terakhir di atas', () => { pm.expect(first.id).to.eql(Number(pm.collectionVariables.get('perhitunganId'))); pm.expect(first.terbaru).to.be.true; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/perhitungan?periodeId={{periodeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "perhitungan"
+              ],
+              "query": [
+                {
+                  "key": "periodeId",
+                  "value": "{{periodeId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Perhitungan - detail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('hasil memuat KK', () => pm.expect(pm.response.json().data.hasil[0].kk).to.include.keys('noKk', 'kepalaKeluarga', 'rt'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/perhitungan/{{perhitunganId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "perhitungan",
+                "{{perhitunganId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Perhitungan - tidak ada (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/perhitungan/999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "perhitungan",
+                "999999"
               ]
             }
           }
