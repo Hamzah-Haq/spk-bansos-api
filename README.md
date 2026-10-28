@@ -22,6 +22,10 @@ Import `postman/spk-bansos-api.postman_collection.json`, lalu jalankan lewat Col
 - **Skenario RBAC**: login, `/auth/me`, akses `/users` sebagai desa = 200 dan sebagai RT = 403, logout.
 - **Skenario Master Data**: CRUD Wilayah RT, Akun, dan Periode (validasi 400, duplikat 409, akses
   RT = 403). Data uji dibuat lalu dihapus kembali, jadi aman dijalankan berulang.
+- **Skenario Kartu Keluarga**: CRUD KK dan pembatasan wilayah untuk akun RT.
+- **Skenario Kriteria & Kuesioner**: bobot (Σ = 1), nama/sifat kriteria, pertanyaan, dan opsi jawaban.
+  Pertanyaan uji dibuat lalu dihapus dan bobot disimpan ulang dengan nilai asli. Hanya berjalan bila
+  kuesioner tidak terkunci (belum ada survei pada periode yang belum final).
 
 Sesi memakai cookie httpOnly `spk.sid` yang otomatis disimpan Postman.
 Tanpa Postman: `npx newman run postman/spk-bansos-api.postman_collection.json`.

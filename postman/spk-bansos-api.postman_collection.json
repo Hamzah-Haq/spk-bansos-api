@@ -52,6 +52,34 @@
     {
       "key": "testKk2",
       "value": ""
+    },
+    {
+      "key": "kriteriaId",
+      "value": ""
+    },
+    {
+      "key": "bobotAsli",
+      "value": ""
+    },
+    {
+      "key": "bobotSalah",
+      "value": ""
+    },
+    {
+      "key": "bobotDesimal",
+      "value": ""
+    },
+    {
+      "key": "pertanyaanId",
+      "value": ""
+    },
+    {
+      "key": "opsiYa",
+      "value": ""
+    },
+    {
+      "key": "opsiTidak",
+      "value": ""
     }
   ],
   "item": [
@@ -1982,6 +2010,917 @@
               "path": [
                 "kk",
                 "{{kkId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Skenario Kriteria & Kuesioner",
+      "description": "Kriteria, bobot (Σ = 1), pertanyaan, dan opsi jawaban beserta aturan RBAC. Jalankan berurutan lewat Collection Runner; pertanyaan uji (kode 9z) dibuat lalu dihapus, bobot disimpan ulang dengan nilai asli. Membutuhkan kuesioner tidak terkunci (belum ada survei pada periode yang belum final).",
+      "item": [
+        {
+          "name": "Login - desa",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin.desa\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Kriteria - list",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const { data, meta } = pm.response.json();",
+                  "pm.test('5 kriteria C1–C5', () => pm.expect(data.map(k => k.kode)).to.eql(['C1', 'C2', 'C3', 'C4', 'C5']));",
+                  "pm.test('bobot berupa angka', () => data.forEach(k => pm.expect(k.bobot).to.be.a('number')));",
+                  "pm.test('Σ bobot = 1', () => pm.expect(meta.totalBobot).to.eql(1));",
+                  "pm.test('kuesionerTerkunci ada di meta', () => pm.expect(meta).to.have.property('kuesionerTerkunci'));",
+                  "// Saved for the bobot requests below and to restore the original weights",
+                  "pm.collectionVariables.set('bobotAsli', JSON.stringify(data.map(k => ({ id: k.id, bobot: k.bobot }))));",
+                  "pm.collectionVariables.set('kriteriaId', data[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/kriteria",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kriteria"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Bobot - total bukan 1 (400)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const items = JSON.parse(pm.collectionVariables.get('bobotAsli'));",
+                  "items[0].bobot = Math.round((items[0].bobot + 0.05) * 1000) / 1000;",
+                  "pm.collectionVariables.set('bobotSalah', JSON.stringify(items));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('details.bobot', () => pm.expect(pm.response.json().error.details).to.have.property('bobot'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bobot\": {{bobotSalah}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/kriteria/bobot",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kriteria",
+                "bobot"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Bobot - 4 angka desimal (400)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const items = JSON.parse(pm.collectionVariables.get('bobotAsli'));",
+                  "items[0].bobot = 0.1234;",
+                  "pm.collectionVariables.set('bobotDesimal', JSON.stringify(items));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bobot\": {{bobotDesimal}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/kriteria/bobot",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kriteria",
+                "bobot"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Bobot - simpan ulang nilai asli",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Σ bobot = 1', () => pm.expect(pm.response.json().meta.totalBobot).to.eql(1));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bobot\": {{bobotAsli}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/kriteria/bobot",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kriteria",
+                "bobot"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Kriteria - nama kosong (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('details.nama', () => pm.expect(pm.response.json().error.details).to.have.property('nama'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nama\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/kriteria/{{kriteriaId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kriteria",
+                "{{kriteriaId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Kriteria - sifat tidak valid (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('details.sifat', () => pm.expect(pm.response.json().error.details).to.have.property('sifat'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sifat\": \"netral\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/kriteria/{{kriteriaId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kriteria",
+                "{{kriteriaId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Pertanyaan - tambah",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201 (409 = kuesioner terkunci karena ada survei aktif)', () => pm.response.to.have.status(201));",
+                  "pm.test('kode disimpan huruf kecil', () => pm.expect(pm.response.json().data.kode).to.eql('9z'));",
+                  "pm.test('belum ada opsi', () => pm.expect(pm.response.json().data.opsi).to.eql([]));",
+                  "pm.collectionVariables.set('pertanyaanId', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kriteriaId\": {{kriteriaId}},\n  \"kode\": \"9Z\",\n  \"teks\": \"Pertanyaan uji Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/pertanyaan",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pertanyaan"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Pertanyaan - kode duplikat (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                  "pm.test('details.kode', () => pm.expect(pm.response.json().error.details).to.have.property('kode'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kriteriaId\": {{kriteriaId}},\n  \"kode\": \"9z\",\n  \"teks\": \"Duplikat\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/pertanyaan",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pertanyaan"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Pertanyaan - kode tidak valid (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('details.kode', () => pm.expect(pm.response.json().error.details).to.have.property('kode'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kode\": \"abc\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/pertanyaan/{{pertanyaanId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pertanyaan",
+                "{{pertanyaanId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Opsi - kurang dari 2 (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('details.opsi', () => pm.expect(pm.response.json().error.details).to.have.property('opsi'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"opsi\": [\n    {\n      \"label\": \"Ya\",\n      \"skor\": 5\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/pertanyaan/{{pertanyaanId}}/opsi",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pertanyaan",
+                "{{pertanyaanId}}",
+                "opsi"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Opsi - label sama (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('details.opsi', () => pm.expect(pm.response.json().error.details).to.have.property('opsi'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"opsi\": [\n    {\n      \"label\": \"Ya\",\n      \"skor\": 5\n    },\n    {\n      \"label\": \"ya\",\n      \"skor\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/pertanyaan/{{pertanyaanId}}/opsi",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pertanyaan",
+                "{{pertanyaanId}}",
+                "opsi"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Opsi - skor di luar 1–5 (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('details.opsi.0.skor', () => pm.expect(pm.response.json().error.details).to.have.property('opsi.0.skor'));",
+                  "pm.test('details.opsi.1.skor', () => pm.expect(pm.response.json().error.details).to.have.property('opsi.1.skor'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"opsi\": [\n    {\n      \"label\": \"Ya\",\n      \"skor\": 6\n    },\n    {\n      \"label\": \"Tidak\",\n      \"skor\": 0\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/pertanyaan/{{pertanyaanId}}/opsi",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pertanyaan",
+                "{{pertanyaanId}}",
+                "opsi"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Opsi - simpan 2 opsi",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const { opsi } = pm.response.json().data;",
+                  "pm.test('urutan sesuai kiriman', () => pm.expect(opsi.map(o => o.label)).to.eql(['Ya', 'Tidak']));",
+                  "pm.collectionVariables.set('opsiYa', opsi[0].id);",
+                  "pm.collectionVariables.set('opsiTidak', opsi[1].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"opsi\": [\n    {\n      \"label\": \"Ya\",\n      \"skor\": 5\n    },\n    {\n      \"label\": \"Tidak\",\n      \"skor\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/pertanyaan/{{pertanyaanId}}/opsi",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pertanyaan",
+                "{{pertanyaanId}}",
+                "opsi"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Opsi - ubah label, urutan, tambah 1, id tetap",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const { opsi } = pm.response.json().data;",
+                  "pm.test('3 opsi dalam urutan baru', () => pm.expect(opsi.map(o => o.label)).to.eql(['Tidak ada', 'Kadang-kadang', 'Ya, ada']));",
+                  "pm.test('id opsi lama dipertahankan', () => pm.expect(opsi[0].id).to.eql(Number(pm.collectionVariables.get('opsiTidak'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"opsi\": [\n    { \"id\": {{opsiTidak}}, \"label\": \"Tidak ada\", \"skor\": 1 },\n    { \"label\": \"Kadang-kadang\", \"skor\": 3 },\n    { \"id\": {{opsiYa}}, \"label\": \"Ya, ada\", \"skor\": 5 }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/pertanyaan/{{pertanyaanId}}/opsi",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pertanyaan",
+                "{{pertanyaanId}}",
+                "opsi"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Kriteria - pertanyaan uji tampil",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const k = pm.response.json().data.find(k => k.id === Number(pm.collectionVariables.get('kriteriaId')));",
+                  "pm.test('pertanyaan 9z ada di kriteria', () => pm.expect(k.pertanyaan.map(p => p.kode)).to.include('9z'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/kriteria",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kriteria"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Pertanyaan - hapus",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/pertanyaan/{{pertanyaanId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pertanyaan",
+                "{{pertanyaanId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login - RT 001",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"rt001.rw001\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Kriteria - RT boleh lihat",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/kriteria",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kriteria"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Bobot - RT ubah (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bobot\": {{bobotAsli}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/kriteria/bobot",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kriteria",
+                "bobot"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Pertanyaan - RT tambah (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kriteriaId\": {{kriteriaId}},\n  \"kode\": \"9y\",\n  \"teks\": \"x\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/pertanyaan",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pertanyaan"
               ]
             }
           }

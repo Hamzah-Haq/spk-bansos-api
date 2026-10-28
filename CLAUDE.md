@@ -45,7 +45,7 @@ src/generated/prisma/     generated client (gitignored; `npm run db:generate`)
 src/middlewares/          error handler (also maps Prisma P2002/P2003/P2025 and bad JSON);
                           auth.js = requireAuth / requireRole; validate.js = zod request validation
 src/modules/<feature>/    feature code: <feature>.routes.js, .controller.js, .service.js
-                          (auth, users, rt, periode, kk, health)
+                          (auth, users, rt, periode, kk, kriteria, pertanyaan, health)
 src/utils/http-error.js   HttpError(status, message, details)
 src/utils/schemas.js      shared zod pieces: idParams, password, searchQuery, optionalQuery, pageQuery,
                           paginate(), pageMeta()
@@ -82,6 +82,16 @@ postman/                  Postman collection (import it; run with Collection Run
 | `GET /api/periode`, `GET /api/periode/:id` | any | `?status=`; includes `jumlahSurvei`, `jumlahPerhitungan` |
 | `POST /api/periode`, `PATCH/DELETE /api/periode/:id` | desa | created as open; final is read-only; delete only without survei/perhitungan |
 | `PATCH /api/periode/:id/status` | desa | `{ status }`: open → closed, closed → open \| final; at most one open periode |
+| `GET /api/kriteria` | any | C1–C5 with `pertanyaan[].opsi[]` (and `jumlahJawaban`); `bobot` is a number; `meta = { totalBobot, kuesionerTerkunci }` (lock reason string or null) |
+| `PATCH /api/kriteria/:id` | desa | `{ nama?, sifat? }`; no create/delete (C1–C5 fixed by proposal Tabel 2.1) |
+| `PUT /api/kriteria/bobot` | desa | `{ bobot: [{ id, bobot }] }` for every kriteria; each > 0, ≤ 3 decimals, Σ = 1.000 exactly |
+| `POST /api/pertanyaan`, `PATCH/DELETE /api/pertanyaan/:id` | desa | `{ kriteriaId, kode (1, 2a…; lowercase, unique), teks }`; PATCH `{ kode?, teks? }`; delete not the last one of a kriteria nor an answered one |
+| `PUT /api/pertanyaan/:id/opsi` | desa | `{ opsi: [{ id?, label, skor 1–5 }] }`, 2–10, unique labels; replaces the list in that order (id = keep, no id = new, missing = delete unless answered) |
+
+Kuesioner lock: while any survei exists in a periode that is open/closed, adding/deleting questions
+or options and changing scores answers 409 (two KK in one periode must be scored by the same rubric;
+`jawaban.skor` is copied at answer time). Question text, codes and option labels stay editable.
+Bobot and sifat stay editable; each SAW run snapshots them.
 
 ## Conventions
 

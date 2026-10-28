@@ -9,6 +9,8 @@ import { usersRouter } from './modules/users/users.routes.js';
 import { rtRouter } from './modules/rt/rt.routes.js';
 import { periodeRouter } from './modules/periode/periode.routes.js';
 import { kkRouter } from './modules/kk/kk.routes.js';
+import { kriteriaRouter } from './modules/kriteria/kriteria.routes.js';
+import { pertanyaanRouter } from './modules/pertanyaan/pertanyaan.routes.js';
 import { notFound, errorHandler } from './middlewares/error-handler.js';
 
 export function createApp() {
@@ -30,6 +32,8 @@ export function createApp() {
   app.use('/api/rt', rtRouter);
   app.use('/api/periode', periodeRouter);
   app.use('/api/kk', kkRouter);
+  app.use('/api/kriteria', kriteriaRouter);
+  app.use('/api/pertanyaan', pertanyaanRouter);
 
   app.use('/api', notFound);
   app.use(errorHandler);
