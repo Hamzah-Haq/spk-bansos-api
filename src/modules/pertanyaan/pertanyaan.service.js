@@ -44,6 +44,19 @@ async function assertUnlocked() {
   if (reason) throw new HttpError(409, reason);
 }
 
+// Whether a survey can be filled in: { totalPertanyaan, belumBerOpsi: ['2b', ...] } where
+// belumBerOpsi = codes (in questionnaire order) of questions with fewer than MIN_OPSI options.
+export async function kelengkapanKuesioner() {
+  const pertanyaan = await prisma.pertanyaan.findMany({
+    select: { kode: true, _count: { select: { opsi: true } } },
+    orderBy: [{ kriteriaId: 'asc' }, { urutan: 'asc' }],
+  });
+  return {
+    totalPertanyaan: pertanyaan.length,
+    belumBerOpsi: pertanyaan.filter((p) => p._count.opsi < MIN_OPSI).map((p) => p.kode),
+  };
+}
+
 async function getPertanyaan(id) {
   const pertanyaan = await prisma.pertanyaan.findUnique({ where: { id }, select: pertanyaanSelect });
   if (!pertanyaan) throw new HttpError(404, 'Pertanyaan tidak ditemukan');

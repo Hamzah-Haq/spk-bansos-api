@@ -12,6 +12,7 @@ import { kkRouter } from './modules/kk/kk.routes.js';
 import { kriteriaRouter } from './modules/kriteria/kriteria.routes.js';
 import { pertanyaanRouter } from './modules/pertanyaan/pertanyaan.routes.js';
 import { surveiRouter } from './modules/survei/survei.routes.js';
+import { dashboardRouter } from './modules/dashboard/dashboard.routes.js';
 import { notFound, errorHandler } from './middlewares/error-handler.js';
 
 export function createApp() {
@@ -36,6 +37,7 @@ export function createApp() {
   app.use('/api/kriteria', kriteriaRouter);
   app.use('/api/pertanyaan', pertanyaanRouter);
   app.use('/api/survei', surveiRouter);
+  app.use('/api/dashboard', dashboardRouter);
 
   app.use('/api', notFound);
   app.use(errorHandler);

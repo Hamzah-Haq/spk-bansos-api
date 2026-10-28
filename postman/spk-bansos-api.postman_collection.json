@@ -3742,6 +3742,36 @@
           }
         },
         {
+          "name": "Dashboard - desa",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json().data;",
+                  "pm.test('ringkasan desa lengkap', () => pm.expect(d).to.include.keys('periode', 'kk', 'survei', 'perRt', 'kuesioner', 'akunRtAktif'));",
+                  "pm.test('KK per RT dijumlah = total', () => pm.expect(d.perRt.reduce((s, r) => s + r.jumlahKk, 0)).to.eql(d.kk.total));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "dashboard"
+              ]
+            }
+          }
+        },
+        {
           "name": "Verifikasi - keputusan tidak valid (400)",
           "event": [
             {
@@ -3943,6 +3973,36 @@
                   "key": "periodeId",
                   "value": "{{periodeId}}"
                 }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dashboard - RT",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json().data;",
+                  "pm.test('tanpa data desa', () => pm.expect(d).to.not.have.any.keys('perRt', 'kuesioner', 'akunRtAktif'));",
+                  "pm.test('draf uji terhitung', () => pm.expect(d.survei.draft).to.be.at.least(1));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "dashboard"
               ]
             }
           }

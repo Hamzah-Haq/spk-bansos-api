@@ -5,7 +5,7 @@ import { detectImage, removeUpload, removeUploadDir, saveUpload, uploadPath } fr
 import { HttpError } from '../../utils/http-error.js';
 import { paginate, pageMeta } from '../../utils/schemas.js';
 import { scopedRtId } from '../kk/kk.service.js';
-import { MIN_OPSI } from '../pertanyaan/pertanyaan.service.js';
+import { kelengkapanKuesioner } from '../pertanyaan/pertanyaan.service.js';
 
 // draft → submitted → verified | rejected → (RT revises) → submitted → ...
 const EDITABLE_STATUS = ['draft', 'rejected'];
@@ -152,12 +152,8 @@ async function getEditable(actor, id) {
 // Every question needs options before anyone can answer it. Checked before the first survey of a
 // periode exists, because that survey locks the questionnaire (see kuesionerLockReason).
 async function assertKuesionerLengkap() {
-  const pertanyaan = await prisma.pertanyaan.findMany({
-    select: { kode: true, _count: { select: { opsi: true } } },
-    orderBy: [{ kriteriaId: 'asc' }, { urutan: 'asc' }],
-  });
-  const belum = pertanyaan.filter((p) => p._count.opsi < MIN_OPSI).map((p) => p.kode);
-  if (!pertanyaan.length || belum.length) {
+  const { totalPertanyaan, belumBerOpsi: belum } = await kelengkapanKuesioner();
+  if (!totalPertanyaan || belum.length) {
     throw new HttpError(
       409,
       `Kuesioner belum lengkap${belum.length ? `: pertanyaan ${belum.join(', ')} belum memiliki opsi jawaban` : ''}. ` +

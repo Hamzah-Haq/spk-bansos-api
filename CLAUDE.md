@@ -45,7 +45,7 @@ src/generated/prisma/     generated client (gitignored; `npm run db:generate`)
 src/middlewares/          error handler (also maps Prisma P2002/P2003/P2025 and bad JSON);
                           auth.js = requireAuth / requireRole; validate.js = zod request validation
 src/modules/<feature>/    feature code: <feature>.routes.js, .controller.js, .service.js
-                          (auth, users, rt, periode, kk, kriteria, pertanyaan, survei, health)
+                          (auth, users, rt, periode, kk, kriteria, pertanyaan, survei, dashboard, health)
 src/lib/uploads.js        photoUpload (multer, memory, 1 file ≤ 5 MB on field "file"), detectImage (JPEG/PNG/
                           WebP by magic bytes), saveUpload/removeUpload/uploadPath (refuses paths outside UPLOAD_DIR)
 src/utils/http-error.js   HttpError(status, message, details)
@@ -91,6 +91,7 @@ postman/                  Postman collection (import it; run with Collection Run
 | `PUT /api/pertanyaan/:id/opsi` | desa | `{ opsi: [{ id?, label, skor 1–5 }] }`, 2–10, unique labels; replaces the list in that order (id = keep, no id = new, missing = delete unless answered) |
 
 | `GET /api/survei` | any | `?periodeId=&status=&rtId=&q=&page=&limit=` → `{ data, meta }`; each with `kk`, `periode`, `jumlahJawaban`, `totalPertanyaan`, `jumlahFoto`, `dapatDiubah`; RT scoped through `kk.rtId` |
+| `GET /api/dashboard` | any | current periode (open, else newest) + `kk { total, belumDisurvei }` + `survei { draft, submitted, verified, rejected, total }`, RT scoped; desa also gets `perRt[]`, `kuesioner { totalPertanyaan, belumBerOpsi[], totalBobot }`, `akunRtAktif` |
 | `GET /api/survei/ringkasan` | any | `?periodeId=&rtId=` → `{ data: { draft, submitted, verified, rejected, total } }`; RT scoped |
 | `GET /api/survei/:id` | any | plus `jawaban[] { pertanyaanId, opsiId, skor }`, `foto[]`; outside the RT's wilayah → 404 |
 | `POST /api/survei/:id/verifikasi` | desa | `{ status: verified \| rejected, catatan? }`; only from submitted, periode not final; `catatan` required for rejected; sets `verifiedBy`/`verifiedAt` either way (= "diperiksa oleh") |
