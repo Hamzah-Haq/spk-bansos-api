@@ -26,6 +26,9 @@ Import `postman/spk-bansos-api.postman_collection.json`, lalu jalankan lewat Col
 - **Skenario Kriteria & Kuesioner**: bobot (Σ = 1), nama/sifat kriteria, pertanyaan, dan opsi jawaban.
   Pertanyaan uji dibuat lalu dihapus dan bobot disimpan ulang dengan nilai asli. Hanya berjalan bila
   kuesioner tidak terkunci (belum ada survei pada periode yang belum final).
+- **Skenario Survei**: mulai survei, simpan jawaban, validasi kirim, pembatasan wilayah RT, akses desa.
+  Prasyarat: ada periode yang dibuka, setiap pertanyaan sudah memiliki minimal 2 opsi jawaban, dan RT 001
+  masih punya KK yang belum disurvei. Draf uji dihapus di akhir; kirim berhasil dan unggah foto diuji manual.
 
 Sesi memakai cookie httpOnly `spk.sid` yang otomatis disimpan Postman.
 Tanpa Postman: `npx newman run postman/spk-bansos-api.postman_collection.json`.

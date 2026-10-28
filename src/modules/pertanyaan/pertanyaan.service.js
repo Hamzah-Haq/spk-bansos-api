@@ -2,6 +2,9 @@ import { prisma } from '../../lib/prisma.js';
 import { audit, diff } from '../../lib/audit.js';
 import { HttpError } from '../../utils/http-error.js';
 
+// Fewest answer options a question can have (a survey can't be started until every question has them)
+export const MIN_OPSI = 2;
+
 export const pertanyaanSelect = {
   id: true,
   kriteriaId: true,

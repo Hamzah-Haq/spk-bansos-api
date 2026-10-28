@@ -45,7 +45,9 @@ src/generated/prisma/     generated client (gitignored; `npm run db:generate`)
 src/middlewares/          error handler (also maps Prisma P2002/P2003/P2025 and bad JSON);
                           auth.js = requireAuth / requireRole; validate.js = zod request validation
 src/modules/<feature>/    feature code: <feature>.routes.js, .controller.js, .service.js
-                          (auth, users, rt, periode, kk, kriteria, pertanyaan, health)
+                          (auth, users, rt, periode, kk, kriteria, pertanyaan, survei, health)
+src/lib/uploads.js        photoUpload (multer, memory, 1 file ≤ 5 MB on field "file"), detectImage (JPEG/PNG/
+                          WebP by magic bytes), saveUpload/removeUpload/uploadPath (refuses paths outside UPLOAD_DIR)
 src/utils/http-error.js   HttpError(status, message, details)
 src/utils/schemas.js      shared zod pieces: idParams, password, searchQuery, optionalQuery, pageQuery,
                           paginate(), pageMeta()
@@ -77,7 +79,7 @@ postman/                  Postman collection (import it; run with Collection Run
 | `GET/POST /api/users`, `GET/PATCH/DELETE /api/users/:id` | desa | role rt requires `rtId`; delete only without survei/perhitungan history (else deactivate) |
 | `PUT /api/users/:id/password` | desa | admin reset `{ password }` |
 | `GET/POST /api/rt`, `GET/PATCH/DELETE /api/rt/:id` | desa | `noRt`/`noRw` padded to 3 digits; delete only with no accounts/KK |
-| `GET /api/kk` | any | `?q=&rtId=&page=&limit=` → `{ data, meta }`; `q` matches No. KK, kepala keluarga, alamat; RT always gets only its own RT (`rtId` ignored) |
+| `GET /api/kk` | any | `?q=&rtId=&tanpaSurvei=<periodeId>&page=&limit=` → `{ data, meta }`; `q` matches No. KK, kepala keluarga, alamat; `tanpaSurvei` = only KK without a survei in that periode; RT always gets only its own RT (`rtId` ignored) |
 | `POST /api/kk`, `GET/PATCH/DELETE /api/kk/:id` | any | `{ noKk (16 digit, unique), kepalaKeluarga, alamat, jumlahAnggota, rtId }`; `rtId` required for desa, RT uses its own; includes `jumlahSurvei`, `jumlahHasil`; delete only without survei/hasil |
 | `GET /api/periode`, `GET /api/periode/:id` | any | `?status=`; includes `jumlahSurvei`, `jumlahPerhitungan` |
 | `POST /api/periode`, `PATCH/DELETE /api/periode/:id` | desa | created as open; final is read-only; delete only without survei/perhitungan |
@@ -87,6 +89,19 @@ postman/                  Postman collection (import it; run with Collection Run
 | `PUT /api/kriteria/bobot` | desa | `{ bobot: [{ id, bobot }] }` for every kriteria; each > 0, ≤ 3 decimals, Σ = 1.000 exactly |
 | `POST /api/pertanyaan`, `PATCH/DELETE /api/pertanyaan/:id` | desa | `{ kriteriaId, kode (1, 2a…; lowercase, unique), teks }`; PATCH `{ kode?, teks? }`; delete not the last one of a kriteria nor an answered one |
 | `PUT /api/pertanyaan/:id/opsi` | desa | `{ opsi: [{ id?, label, skor 1–5 }] }`, 2–10, unique labels; replaces the list in that order (id = keep, no id = new, missing = delete unless answered) |
+
+| `GET /api/survei` | any | `?periodeId=&status=&rtId=&q=&page=&limit=` → `{ data, meta }`; each with `kk`, `periode`, `jumlahJawaban`, `totalPertanyaan`, `jumlahFoto`, `dapatDiubah`; RT scoped through `kk.rtId` |
+| `GET /api/survei/:id` | any | plus `jawaban[] { pertanyaanId, opsiId, skor }`, `foto[]`; outside the RT's wilayah → 404 |
+| `POST /api/survei` | rt | `{ kkId }` → draft in the open periode; 409 if no open periode, KK already surveyed in it, or kuesioner incomplete (a question with < 2 opsi) |
+| `PUT /api/survei/:id/jawaban` | rt | `{ jawaban: [{ pertanyaanId, opsiId }] }` upserts only these (save per step); `skor` copied from the opsi |
+| `POST /api/survei/:id/submit` | rt | draft/rejected → submitted; every question must be answered (409 lists the missing codes) |
+| `DELETE /api/survei/:id` | rt | only a draft that was never submitted (also deletes its photos) |
+| `POST /api/survei/:id/foto` | rt | multipart `file` + `jenis` (depan, lantai, dinding, atap, jamban, air); one per jenis, re-upload replaces |
+| `GET /api/survei/:id/foto/:fotoId`, `DELETE …` | any / rt | GET streams the image with the survei's access rules; files in `UPLOAD_DIR/survei/<id>/` |
+
+Survei edits (answers, photos, submit, delete) need status draft or rejected **and** an open periode
+(`dapatDiubah`). Verification (submitted → verified/rejected) is T6, not built yet. Photos are not
+required for submit (not specified in the proposal).
 
 Kuesioner lock: while any survei exists in a periode that is open/closed, adding/deleting questions
 or options and changing scores answers 409 (two KK in one periode must be scored by the same rubric;

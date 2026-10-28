@@ -80,6 +80,30 @@
     {
       "key": "opsiTidak",
       "value": ""
+    },
+    {
+      "key": "periodeId",
+      "value": ""
+    },
+    {
+      "key": "surveiId",
+      "value": ""
+    },
+    {
+      "key": "jawabanLengkap",
+      "value": ""
+    },
+    {
+      "key": "jawabanSebagian",
+      "value": ""
+    },
+    {
+      "key": "jawabanSalah",
+      "value": ""
+    },
+    {
+      "key": "totalPertanyaan",
+      "value": ""
     }
   ],
   "item": [
@@ -2921,6 +2945,859 @@
               ],
               "path": [
                 "pertanyaan"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Skenario Survei",
+      "description": "Survei RT: mulai, jawaban parsial/lengkap, validasi kirim, pembatasan wilayah, dan akses desa. Prasyarat: ada periode yang dibuka, setiap pertanyaan sudah memiliki minimal 2 opsi jawaban, dan RT 001 masih punya KK yang belum disurvei pada periode itu. Draf survei uji dihapus kembali di akhir. Kirim (submit) berhasil dan unggah foto diuji manual, karena survei yang sudah dikirim tidak dapat dihapus.",
+      "item": [
+        {
+          "name": "Login - rt001.rw001",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"rt001.rw001\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Periode dibuka",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const [open] = pm.response.json().data;",
+                  "pm.test('ada periode yang dibuka (prasyarat)', () => pm.expect(open).to.exist);",
+                  "if (open) pm.collectionVariables.set('periodeId', open.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/periode?status=open",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "periode"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "open"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Kuesioner (siapkan jawaban)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const pertanyaan = pm.response.json().data.flatMap(k => k.pertanyaan);",
+                  "pm.test('semua pertanyaan punya ≥ 2 opsi (prasyarat)', () => pertanyaan.forEach(p => pm.expect(p.opsi.length, p.kode).to.be.at.least(2)));",
+                  "// First option of every question = a complete answer set; first question only = a partial one",
+                  "const lengkap = pertanyaan.map(p => ({ pertanyaanId: p.id, opsiId: p.opsi[0]?.id }));",
+                  "pm.collectionVariables.set('jawabanLengkap', JSON.stringify(lengkap));",
+                  "pm.collectionVariables.set('jawabanSebagian', JSON.stringify(lengkap.slice(0, 1)));",
+                  "pm.collectionVariables.set('totalPertanyaan', pertanyaan.length);",
+                  "// An option of question 2 sent as the answer to question 1",
+                  "const salah = [{ pertanyaanId: pertanyaan[0].id, opsiId: pertanyaan[1]?.opsi[0]?.id ?? 0 }];",
+                  "pm.collectionVariables.set('jawabanSalah', JSON.stringify(salah));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/kriteria",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kriteria"
+              ]
+            }
+          }
+        },
+        {
+          "name": "KK belum disurvei",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const [kk] = pm.response.json().data;",
+                  "pm.test('ada KK RT 001 yang belum disurvei (prasyarat)', () => pm.expect(kk).to.exist);",
+                  "if (kk) pm.collectionVariables.set('kkId', kk.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/kk?tanpaSurvei={{periodeId}}&limit=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kk"
+              ],
+              "query": [
+                {
+                  "key": "tanpaSurvei",
+                  "value": "{{periodeId}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Survei - mulai",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201 (409 = kuesioner belum lengkap / tidak ada periode dibuka)', () => pm.response.to.have.status(201));",
+                  "const { data } = pm.response.json();",
+                  "pm.test('status draft', () => pm.expect(data.status).to.eql('draft'));",
+                  "pm.test('dapatDiubah', () => pm.expect(data.dapatDiubah).to.be.true);",
+                  "pm.collectionVariables.set('surveiId', data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kkId\": {{kkId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/survei",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "survei"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Survei - KK yang sama lagi (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kkId\": {{kkId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/survei",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "survei"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Kuesioner terkunci selama ada survei",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('kuesionerTerkunci terisi', () => pm.expect(pm.response.json().meta.kuesionerTerkunci).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/kriteria",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kriteria"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Jawaban - opsi bukan milik pertanyaan (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('details jawaban.0.opsiId', () => pm.expect(pm.response.json().error.details).to.have.property('jawaban.0.opsiId'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jawaban\": {{jawabanSalah}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/survei/{{surveiId}}/jawaban",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "survei",
+                "{{surveiId}}",
+                "jawaban"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Jawaban - simpan sebagian",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('1 jawaban tersimpan', () => pm.expect(pm.response.json().data.jumlahJawaban).to.eql(1));",
+                  "pm.test('skor disalin ke jawaban', () => pm.expect(pm.response.json().data.jawaban[0].skor).to.be.within(1, 5));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jawaban\": {{jawabanSebagian}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/survei/{{surveiId}}/jawaban",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "survei",
+                "{{surveiId}}",
+                "jawaban"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Kirim - belum lengkap (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                  "pm.test('details.jawaban', () => pm.expect(pm.response.json().error.details).to.have.property('jawaban'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/survei/{{surveiId}}/submit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "survei",
+                "{{surveiId}}",
+                "submit"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Jawaban - simpan semua",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('semua pertanyaan terjawab', () => pm.expect(pm.response.json().data.jumlahJawaban).to.eql(Number(pm.collectionVariables.get('totalPertanyaan'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jawaban\": {{jawabanLengkap}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/survei/{{surveiId}}/jawaban",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "survei",
+                "{{surveiId}}",
+                "jawaban"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Foto - tanpa file (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('details.file', () => pm.expect(pm.response.json().error.details).to.have.property('file'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/survei/{{surveiId}}/foto",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "survei",
+                "{{surveiId}}",
+                "foto"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Survei - list periode ini",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('hanya KK RT 001', () => pm.response.json().data.forEach(s => pm.expect(s.kk.rt.noRt).to.eql('001')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/survei?periodeId={{periodeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "survei"
+              ],
+              "query": [
+                {
+                  "key": "periodeId",
+                  "value": "{{periodeId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login - rt002.rw001",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"rt002.rw001\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Survei - RT lain lihat (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/survei/{{surveiId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "survei",
+                "{{surveiId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Jawaban - RT lain ubah (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jawaban\": {{jawabanSebagian}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/survei/{{surveiId}}/jawaban",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "survei",
+                "{{surveiId}}",
+                "jawaban"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login - admin.desa",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin.desa\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Survei - desa lihat",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('jawaban ikut', () => pm.expect(pm.response.json().data.jawaban).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/survei/{{surveiId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "survei",
+                "{{surveiId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Survei - desa mulai (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kkId\": {{kkId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/survei",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "survei"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login - rt001.rw001",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"rt001.rw001\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Survei - hapus draf",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/survei/{{surveiId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "survei",
+                "{{surveiId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Survei - sudah dihapus (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/survei/{{surveiId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "survei",
+                "{{surveiId}}"
               ]
             }
           }

@@ -43,10 +43,12 @@ const kkBody = z.object({
 const listQuery = z.object({
   q: searchQuery,
   rtId: optionalQuery(z.coerce.number().int().positive()),
+  // periodeId: only KK without a survei in that periode
+  tanpaSurvei: optionalQuery(z.coerce.number().int().positive()),
   ...pageQuery,
 });
 
-// GET    /api/kk      ?q=&rtId=&page=&limit= → { data, meta }; RT accounts only get their own RT
+// GET    /api/kk      ?q=&rtId=&tanpaSurvei=&page=&limit= → { data, meta }; RT accounts only get their own RT
 kkRouter.get('/', validate({ query: listQuery }), controller.list);
 // GET    /api/kk/:id  → 404 for a KK outside the RT account's wilayah
 kkRouter.get('/:id', validate({ params: idParams }), controller.get);

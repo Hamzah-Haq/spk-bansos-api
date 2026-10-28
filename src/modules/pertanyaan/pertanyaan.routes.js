@@ -4,6 +4,7 @@ import { requireAuth, requireRole } from '../../middlewares/auth.js';
 import { validate } from '../../middlewares/validate.js';
 import { idParams } from '../../utils/schemas.js';
 import * as controller from './pertanyaan.controller.js';
+import { MIN_OPSI } from './pertanyaan.service.js';
 
 export const pertanyaanRouter = Router();
 
@@ -52,7 +53,7 @@ const opsiItem = z.object({
 const opsiBody = z.object({
   opsi: z
     .array(opsiItem, { error: 'Daftar opsi wajib diisi' })
-    .min(2, 'Minimal 2 opsi jawaban')
+    .min(MIN_OPSI, `Minimal ${MIN_OPSI} opsi jawaban`)
     .max(10, 'Maksimal 10 opsi jawaban')
     .refine(
       (items) => new Set(items.map((o) => o.label.toLowerCase())).size === items.length,

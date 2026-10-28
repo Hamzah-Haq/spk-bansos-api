@@ -24,7 +24,8 @@ function toPublicKk({ _count, ...kk }) {
 }
 
 // The RT an account is limited to: its own RT for role rt, undefined (= whole village) for desa.
-function scopedRtId(actor) {
+// Also used by survei.service: a survei is scoped through its KK.
+export function scopedRtId(actor) {
   if (actor.role !== 'rt') return undefined;
   if (!actor.rt) {
     throw new HttpError(403, 'Akun Anda belum terhubung ke wilayah RT. Hubungi admin desa.');
@@ -32,9 +33,11 @@ function scopedRtId(actor) {
   return actor.rt.id;
 }
 
-export async function listKk(actor, { q, rtId, page, limit }) {
+export async function listKk(actor, { q, rtId, tanpaSurvei, page, limit }) {
   const where = {
     rtId: scopedRtId(actor) ?? rtId,
+    // KK not yet surveyed in that periode (the "start a survey" picker)
+    ...(tanpaSurvei && { survei: { none: { periodeId: tanpaSurvei } } }),
     ...(q && {
       OR: [
         { noKk: { contains: q } },
