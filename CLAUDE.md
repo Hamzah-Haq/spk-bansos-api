@@ -18,7 +18,7 @@ cp .env.example .env            # first time
 docker compose up -d db         # Postgres only (dev)
 npm install                     # also runs `prisma generate` (postinstall)
 npm run db:migrate              # apply/create migrations (prisma migrate dev)
-npm run db:seed                 # idempotent fictional seed (accounts, RT, kriteria, pertanyaan, periode)
+npm run db:seed                 # idempotent fictional seed (accounts, RT, KK, kriteria, pertanyaan, periode)
 npm run dev                     # http://localhost:3000, auto-restart on change
 npm run db:studio               # browse data
 
@@ -45,7 +45,7 @@ src/generated/prisma/     generated client (gitignored; `npm run db:generate`)
 src/middlewares/          error handler (also maps Prisma P2002/P2003/P2025 and bad JSON);
                           auth.js = requireAuth / requireRole; validate.js = zod request validation
 src/modules/<feature>/    feature code: <feature>.routes.js, .controller.js, .service.js
-                          (auth, users, rt, periode, health)
+                          (auth, users, rt, periode, kk, health)
 src/utils/http-error.js   HttpError(status, message, details)
 src/utils/schemas.js      shared zod pieces: idParams, password, searchQuery, optionalQuery, pageQuery,
                           paginate(), pageMeta()
@@ -60,7 +60,9 @@ postman/                  Postman collection (import it; run with Collection Run
 - `requireRole('desa')` / `requireRole('rt')` after `requireAuth`; wrong role → 403. Put guards
   in the feature router (`router.use(requireAuth, requireRole('desa'))`) or per route.
 - RT data scoping (an RT sees only KK in its own RT) is a service-layer filter on
-  `req.user.rt.id`, not just a role check. Add it to every RT-facing query.
+  `req.user.rt.id`, not just a role check. Add it to every RT-facing query (see `scopedRtId` in
+  `kk.service.js`). A record outside the RT's wilayah answers 404, not 403, so its existence
+  isn't revealed; trying to create/move one into another RT answers 403.
 - Self-lockout guard: a desa account can't deactivate, demote, delete or admin-reset itself, so
   at least one active desa account always remains.
 - Password reset, password change, deactivation and deletion call `revokeUserSessions`.
@@ -75,6 +77,8 @@ postman/                  Postman collection (import it; run with Collection Run
 | `GET/POST /api/users`, `GET/PATCH/DELETE /api/users/:id` | desa | role rt requires `rtId`; delete only without survei/perhitungan history (else deactivate) |
 | `PUT /api/users/:id/password` | desa | admin reset `{ password }` |
 | `GET/POST /api/rt`, `GET/PATCH/DELETE /api/rt/:id` | desa | `noRt`/`noRw` padded to 3 digits; delete only with no accounts/KK |
+| `GET /api/kk` | any | `?q=&rtId=&page=&limit=` → `{ data, meta }`; `q` matches No. KK, kepala keluarga, alamat; RT always gets only its own RT (`rtId` ignored) |
+| `POST /api/kk`, `GET/PATCH/DELETE /api/kk/:id` | any | `{ noKk (16 digit, unique), kepalaKeluarga, alamat, jumlahAnggota, rtId }`; `rtId` required for desa, RT uses its own; includes `jumlahSurvei`, `jumlahHasil`; delete only without survei/hasil |
 | `GET /api/periode`, `GET /api/periode/:id` | any | `?status=`; includes `jumlahSurvei`, `jumlahPerhitungan` |
 | `POST /api/periode`, `PATCH/DELETE /api/periode/:id` | desa | created as open; final is read-only; delete only without survei/perhitungan |
 | `PATCH /api/periode/:id/status` | desa | `{ status }`: open → closed, closed → open \| final; at most one open periode |

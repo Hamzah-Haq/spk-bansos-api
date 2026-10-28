@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "SPK Bansos API",
-    "description": "Auth, RBAC & master data. Sesi disimpan di cookie httpOnly spk.sid; Postman menyimpannya otomatis (cookie jar), jadi tidak perlu header Authorization. Jalankan folder \"Skenario RBAC\" berurutan lewat Collection Runner.",
+    "description": "Auth, RBAC, master data & KK. Sesi disimpan di cookie httpOnly spk.sid; Postman menyimpannya otomatis (cookie jar), jadi tidak perlu header Authorization. Jalankan folder \"Skenario RBAC\" berurutan lewat Collection Runner.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -31,6 +31,26 @@
     },
     {
       "key": "testUser",
+      "value": ""
+    },
+    {
+      "key": "rt001Id",
+      "value": ""
+    },
+    {
+      "key": "rt002Id",
+      "value": ""
+    },
+    {
+      "key": "kkId",
+      "value": ""
+    },
+    {
+      "key": "testKk",
+      "value": ""
+    },
+    {
+      "key": "testKk2",
       "value": ""
     }
   ],
@@ -1282,6 +1302,686 @@
               "path": [
                 "auth",
                 "password"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Skenario Kartu Keluarga",
+      "description": "CRUD Kartu Keluarga dan pembatasan wilayah RT (Ketua RT hanya melihat/mengelola KK di RT-nya). Jalankan berurutan lewat Collection Runner; data uji dibuat lalu dihapus kembali.",
+      "item": [
+        {
+          "name": "Login - desa",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Unique 16-digit KK numbers per run so the folder can be re-run",
+                  "const stamp = String(Date.now()).slice(-12);",
+                  "pm.collectionVariables.set('testKk', '9901' + stamp);",
+                  "pm.collectionVariables.set('testKk2', '9902' + stamp);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin.desa\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "RT - cari RT 001 & 002",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json().data;",
+                  "const find = (noRt) => rows.find((rt) => rt.noRt === noRt && rt.noRw === '001');",
+                  "pm.test('RT 001 & 002 ada (jalankan seed)', () => pm.expect(find('001') && find('002')).to.be.ok);",
+                  "pm.collectionVariables.set('rt001Id', find('001').id);",
+                  "pm.collectionVariables.set('rt002Id', find('002').id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/rt",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rt"
+              ]
+            }
+          }
+        },
+        {
+          "name": "KK - tambah (desa)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('kkId', pm.response.json().data.id);",
+                  "pm.test('jumlahSurvei = 0', () => pm.expect(pm.response.json().data.jumlahSurvei).to.eql(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"noKk\": \"{{testKk}}\",\n  \"kepalaKeluarga\": \"Uji Postman\",\n  \"alamat\": \"Jl. Pengujian No. 1\",\n  \"jumlahAnggota\": 4,\n  \"rtId\": {{rt001Id}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/kk",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kk"
+              ]
+            }
+          }
+        },
+        {
+          "name": "KK - No. KK tidak valid (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('details.noKk', () => pm.expect(pm.response.json().error.details).to.have.property('noKk'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"noKk\": \"12345\",\n  \"kepalaKeluarga\": \"Uji Postman\",\n  \"alamat\": \"Jl. Pengujian No. 1\",\n  \"jumlahAnggota\": 4,\n  \"rtId\": {{rt001Id}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/kk",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kk"
+              ]
+            }
+          }
+        },
+        {
+          "name": "KK - No. KK duplikat (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                  "pm.test('details.noKk', () => pm.expect(pm.response.json().error.details).to.have.property('noKk'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"noKk\": \"{{testKk}}\",\n  \"kepalaKeluarga\": \"Uji Duplikat\",\n  \"alamat\": \"Jl. Pengujian No. 2\",\n  \"jumlahAnggota\": 2,\n  \"rtId\": {{rt002Id}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/kk",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kk"
+              ]
+            }
+          }
+        },
+        {
+          "name": "KK - desa tanpa wilayah RT (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('details.rtId', () => pm.expect(pm.response.json().error.details).to.have.property('rtId'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"noKk\": \"{{testKk2}}\",\n  \"kepalaKeluarga\": \"Uji Postman\",\n  \"alamat\": \"Jl. Pengujian No. 1\",\n  \"jumlahAnggota\": 4\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/kk",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kk"
+              ]
+            }
+          }
+        },
+        {
+          "name": "KK - list + cari",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('tepat 1 hasil', () => pm.expect(pm.response.json().meta.total).to.eql(1));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/kk?q={{testKk}}&page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kk"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "{{testKk}}"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login - RT 002",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"rt002.rw001\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "KK - RT lihat KK RT lain (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/kk/{{kkId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kk",
+                "{{kkId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "KK - RT list hanya wilayah sendiri",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const rt002Id = Number(pm.collectionVariables.get('rt002Id'));",
+                  "pm.test('semua KK milik RT 002', () => {",
+                  "  pm.response.json().data.forEach((kk) => pm.expect(kk.rt.id).to.eql(rt002Id));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/kk?rtId={{rt001Id}}&limit=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kk"
+              ],
+              "query": [
+                {
+                  "key": "rtId",
+                  "value": "{{rt001Id}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "KK - RT ubah KK RT lain (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jumlahAnggota\": 9\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/kk/{{kkId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kk",
+                "{{kkId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "KK - RT tambah ke RT lain (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"noKk\": \"{{testKk2}}\",\n  \"kepalaKeluarga\": \"Uji Postman\",\n  \"alamat\": \"Jl. Pengujian No. 1\",\n  \"jumlahAnggota\": 4,\n  \"rtId\": {{rt001Id}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/kk",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kk"
+              ]
+            }
+          }
+        },
+        {
+          "name": "KK - RT tambah No. KK yang sudah ada (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                  "pm.test('tidak menyebut RT lain', () => pm.expect(pm.response.json().error.message).to.include('wilayah RT lain'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"noKk\": \"{{testKk}}\",\n  \"kepalaKeluarga\": \"Uji Duplikat\",\n  \"alamat\": \"Jl. Pengujian No. 2\",\n  \"jumlahAnggota\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/kk",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kk"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login - RT 001",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"rt001.rw001\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "KK - RT ubah KK sendiri",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('jumlahAnggota = 5', () => pm.expect(pm.response.json().data.jumlahAnggota).to.eql(5));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jumlahAnggota\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/kk/{{kkId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kk",
+                "{{kkId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "KK - RT hapus KK sendiri",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/kk/{{kkId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kk",
+                "{{kkId}}"
               ]
             }
           }

@@ -69,6 +69,19 @@ const KRITERIA = [
 ];
 // TODO(opsi): answer options + 1–5 scores per question are not defined in the proposal yet.
 
+// Fictional households, three per RT (all in RW 001). KK numbers are made up: 320101010126 + seq.
+const KK_LIST = [
+  { noRt: '001', kepalaKeluarga: 'Ahmad Suryadi', alamat: 'Jl. Melati No. 3', jumlahAnggota: 5 },
+  { noRt: '001', kepalaKeluarga: 'Siti Rahmawati', alamat: 'Jl. Melati No. 12', jumlahAnggota: 3 },
+  { noRt: '001', kepalaKeluarga: 'Bambang Hartono', alamat: 'Gg. Kenanga No. 7', jumlahAnggota: 6 },
+  { noRt: '002', kepalaKeluarga: 'Dewi Lestari', alamat: 'Jl. Mawar No. 5', jumlahAnggota: 4 },
+  { noRt: '002', kepalaKeluarga: 'Joko Prasetyo', alamat: 'Jl. Mawar No. 21', jumlahAnggota: 2 },
+  { noRt: '002', kepalaKeluarga: 'Nur Aini', alamat: 'Gg. Anggrek No. 2', jumlahAnggota: 7 },
+  { noRt: '003', kepalaKeluarga: 'Hendra Gunawan', alamat: 'Jl. Flamboyan No. 9', jumlahAnggota: 4 },
+  { noRt: '003', kepalaKeluarga: 'Sri Wahyuni', alamat: 'Jl. Flamboyan No. 15', jumlahAnggota: 5 },
+  { noRt: '003', kepalaKeluarga: 'Agus Salim', alamat: 'Gg. Dahlia No. 4', jumlahAnggota: 3 },
+];
+
 async function seedWilayahDanAkun() {
   const passwordHash = await bcrypt.hash(SEED_PASSWORD, 10);
 
@@ -96,6 +109,18 @@ async function seedWilayahDanAkun() {
         role: 'rt',
         rtId: rt.id,
       },
+    });
+  }
+}
+
+async function seedKartuKeluarga() {
+  for (const [index, { noRt, ...kk }] of KK_LIST.entries()) {
+    const rt = await prisma.rt.findUnique({ where: { noRt_noRw: { noRt, noRw: '001' } } });
+    const noKk = `320101010126${String(index + 1).padStart(4, '0')}`;
+    await prisma.kartuKeluarga.upsert({
+      where: { noKk },
+      update: {},
+      create: { ...kk, noKk, rtId: rt.id },
     });
   }
 }
@@ -128,9 +153,13 @@ async function seedPeriode() {
 
 try {
   await seedWilayahDanAkun();
+  await seedKartuKeluarga();
   await seedKriteria();
   await seedPeriode();
-  console.log(`Seed selesai. Akun: admin.desa, rt001.rw001..rt003.rw001 (password: ${SEED_PASSWORD})`);
+  console.log(
+    `Seed selesai. Akun: admin.desa, rt001.rw001..rt003.rw001 (password: ${SEED_PASSWORD}); ` +
+      `${KK_LIST.length} KK contoh`,
+  );
 } finally {
   await prisma.$disconnect();
 }
