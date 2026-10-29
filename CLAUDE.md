@@ -19,6 +19,8 @@ docker compose up -d db         # Postgres only (dev)
 npm install                     # also runs `prisma generate` (postinstall)
 npm run db:migrate              # apply/create migrations (prisma migrate dev)
 npm run db:seed                 # idempotent fictional seed (accounts, RT, KK, kriteria, pertanyaan, periode)
+npm run db:seed:dummy           # TESTING ONLY: dummy opsi (prisma/dummy-data.js, C1 scale reversed = option C),
+                                # a verified survei per seed KK in the open periode, kuota 4; not the team's decision
 npm run dev                     # http://localhost:3000, auto-restart on change
 npm run db:studio               # browse data
 npm test                        # node:test unit tests in test/ (SAW engine, no database)

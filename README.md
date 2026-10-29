@@ -34,6 +34,12 @@ Import `postman/spk-bansos-api.postman_collection.json`, lalu jalankan lewat Col
   V menurun, layak = kuota teratas). Prasyarat: periode dibuka dengan minimal 1 survei terverifikasi.
   Perhitungan yang berhasil tetap tersimpan sebagai riwayat.
 
+## Data dummy untuk uji coba SAW
+`npm run db:seed:dummy` (setelah `npm run db:seed`) mengisi opsi jawaban dummy untuk semua pertanyaan,
+membuat survei terverifikasi untuk 9 KK contoh di periode yang dibuka, dan mengubah kuota menjadi 4.
+Setelah itu buka menu Perhitungan SAW → Jalankan Perhitungan. Opsi dan skor ini hanya untuk pengujian,
+bukan keputusan tim (skala C1 dibalik: 1 = pendapatan terendah, sesuai opsi C).
+
 ## Unit test SAW
 `npm test` menjalankan uji mesin SAW (`src/lib/saw.js`, tanpa database): konversi nilai, normalisasi
 benefit/cost, nilai V, ranking, kuota, dan aturan nilai seri.

@@ -9,6 +9,7 @@
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:seed": "prisma db seed",
+    "db:seed:dummy": "node prisma/seed-dummy.js",
     "db:studio": "prisma studio",
     "test": "node --test",
     "postinstall": "prisma generate"
